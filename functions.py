@@ -2,11 +2,14 @@
 # -*- coding: utf-8 -*-
 # ===============================================================================
 # Author: Dr. Samuel Louviot, PhD
+#         Dr. Alp Erkent, MD, MA
 # Institution: Nathan Kline Institute
+#              Child Mind Institute
 # Address: 140 Old Orangeburg Rd, Orangeburg, NY 10962, USA
-# Date: 2024-01-19
-# Modified: 2024-02-08
+#          215 E 50th St, New York, NY 10022
+# Date: 2024-02-27
 # email: samuel DOT louviot AT nki DOT rfmh DOT org
+#        alp DOT erkent AT childmind DOT org
 # ===============================================================================
 # LICENCE GNU GPLv3:
 # Copyright (C) 2024  Dr. Samuel Louviot, PhD
@@ -70,7 +73,7 @@ import scipy        # python -m conda install -c conda-forge scipy     or    pyt
 __all__ = [
     "input_interpreter",
     "read_raw_eeg",
-    "subject_explorer",
+    "numerical_explorer",
 ]
 
 
@@ -90,7 +93,7 @@ class ReadingFileError(Exception):
     pass
 
 
-def input_interpreter(input_string, max_value=1000):
+def input_interpreter(input_string, input_param, max_value=1000):
     """Interpret input string as a list of integers.
     The input string can contain:
         - a list of integers separated by commas (e.g. "1,3,5,7")
@@ -123,16 +126,16 @@ def input_interpreter(input_string, max_value=1000):
             if start.isnumeric() and stop.isnumeric():
                 desired_subject_numbers.extend(range(int(start), int(stop) + 1))
             else:
-                raise ValueError(
-                    "Subject number must contain only digits, hypphens '-' and asterisks '*'"
-                )
+                print(f"Please make sure that '{input_param}'='{input_string}' is correctly formatted. See help for more information.")
+                break
         else:
             if element.strip().isnumeric():
                 desired_subject_numbers.append(int(element))
+            elif element.strip() == "*":
+                desired_subject_numbers.extend(range(1, max_value + 1))
             else:
-                raise ValueError(
-                    "Subject number must contain only digits, hypphens '-' and asterisks '*'"
-                )
+                print(f"Please make sure that '{input_param}'='{input_string}' is correctly formatted. See help for more information.")
+                break
     return desired_subject_numbers
 
 
@@ -186,23 +189,33 @@ def read_raw_eeg(filename, preload=False):
         raise FileNotFoundError(f"File {filename} does not exist")
 
 
-def subject_explorer(directory):
-    """Give the existing subjects
+def numerical_explorer(directory, prefix):
+    """Give the existing numerical elements based on the prefix
 
     Args:
         directory (str or pathlike): The directory to explore
+        prefix (str): The prefix to filter the elements (e.g., "sub", "ses", "run")
+
+    Returns:
+        list: List of existing numerical elements based on the prefix
     """
     if os.path.isdir(directory):
-        subjects = (
-            int(element.split("-")[-1])
-            for element in os.listdir(directory)
-            if "sub" in element
-        )
-        if subjects:
-            return subjects
-
+        if prefix == "run":
+            elements = (
+                int(element.split("_run-")[-1][:2])
+                for element in os.listdir(directory)
+                if prefix in element
+            )
         else:
-            raise NoSubjectFoundError(f"No subject found in {directory}")
+            elements = (
+                int(element.split("-")[-1])
+                for element in os.listdir(directory)
+                if prefix in element
+            )
+        if elements:
+            return elements
+        else:
+            raise ValueError(f"No element with prefix '{prefix}' found in {directory}")
     else:
         raise NotADirectoryError(f"{directory} is not a directory")
 

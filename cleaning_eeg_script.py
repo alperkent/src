@@ -2,10 +2,14 @@
 # -*- coding: utf-8 -*-
 # ===============================================================================
 # Author: Dr. Samuel Louviot, PhD
+#         Dr. Alp Erkent, MD, MA
 # Institution: Nathan Kline Institute
+#              Child Mind Institute
 # Address: 140 Old Orangeburg Rd, Orangeburg, NY 10962, USA
-# Date: 2024-01-19
+#          215 E 50th St, New York, NY 10022
+# Date: 2024-02-27
 # email: samuel DOT louviot AT nki DOT rfmh DOT org
+#        alp DOT erkent AT childmind DOT org
 # ===============================================================================
 # LICENCE GNU GPLv3:
 # Copyright (C) 2024  Dr. Samuel Louviot, PhD
@@ -190,16 +194,18 @@ def bcg_eog_cleaner(raw, bids_path):
 def Main(**kwargs):
     kwargs.update({key: None for key in kwargs.keys() if kwargs.get(key).lower() == "none"})
     reading_root = Path(kwargs["root"], kwargs["datafolder"])
+    print(f"Reading root: {reading_root}")
     print(kwargs.items())
     try:
-        existing_subject_numbers = set(subject_explorer(reading_root))
+        existing_subject_numbers = set(numerical_explorer(reading_root, "sub"))
+        print(f"Existing subject numbers: {existing_subject_numbers}")
     except:
         raise Exception
 
     try:
         desired_subject_numbers = set(
             input_interpreter(
-                kwargs["subject"], max_value=max(existing_subject_numbers)
+                kwargs["subject"], "sub", max_value=max(existing_subject_numbers)
             )
         )
     except:
@@ -211,24 +217,69 @@ def Main(**kwargs):
     subject_list = [f"{subject_number:02d}" for subject_number in subject_numbers]
 
     for subject in subject_list:
-        bids_path = mne_bids.BIDSPath(
-            subject=subject,
-            suffix=kwargs.get("suffix"),
-            extension=kwargs.get("extension"),
-            root=reading_root,
-            session=kwargs.get("session"),
-            task=kwargs.get("task"),
-            run=kwargs.get("run"),
-            datatype=kwargs.get("datatype"),
-            description=kwargs.get("description"),
+        subject_path = reading_root / f"sub-{subject}"
+        print(f"Subject path: {subject_path}")
+        try:
+            existing_session_numbers = set(numerical_explorer(subject_path, "ses"))
+            print(f"Existing session numbers: {existing_session_numbers}")
+        except:
+            raise Exception
+
+        try:
+            desired_session_numbers = set(
+                input_interpreter(
+                    kwargs["session"], "ses", max_value=max(existing_session_numbers)
+                )
+            )
+        except:
+            raise Exception
+
+        session_numbers = list(
+            existing_session_numbers.intersection(desired_session_numbers)
         )
+        session_list = [f"{session_number:02d}" for session_number in session_numbers]
 
-        raw = read_raw_eeg(str(bids_path.fpath), preload=True)
-        raw = gradient_cleaner(raw, bids_path)
-        raw = bcg_eog_cleaner(raw, bids_path)
-        bids_path.update(description="precleaning", suffix="eeg", extension=".fif")
-        raw.save(str(bids_path.fpath), overwrite=True)
+        for session in session_list:
+            session_path = subject_path / f"ses-{session}" / kwargs["datatype"]
+            print(f"Session path: {session_path}")
+            try:
+                existing_run_numbers = set(numerical_explorer(session_path, "run"))
+                print(f"Existing run numbers: {existing_run_numbers}")
+            except:
+                raise Exception
 
+            try:
+                desired_run_numbers = set(
+                    input_interpreter(
+                        kwargs["run"], "run", max_value=max(existing_run_numbers)
+                    )
+                )
+            except:
+                raise Exception
+
+            run_numbers = list(
+                existing_run_numbers.intersection(desired_run_numbers)
+            )
+            run_list = [f"{run_number:02d}" for run_number in run_numbers]
+
+            for run in run_list:
+                bids_path = mne_bids.BIDSPath(
+                    subject=subject,
+                    suffix=kwargs.get("suffix"),
+                    extension=kwargs.get("extension"),
+                    root=reading_root,
+                    session=session,
+                    task=kwargs.get("task"),
+                    run=run,
+                    datatype=kwargs.get("datatype"),
+                    description=kwargs.get("description"),
+                )
+
+                raw = read_raw_eeg(str(bids_path.fpath), preload=True)
+                # raw = gradient_cleaner(raw, bids_path)
+                raw = bcg_eog_cleaner(raw, bids_path)
+                bids_path.update(description="precleaning", suffix="eeg", extension=".fif")
+                raw.save(str(bids_path.fpath), overwrite=True)
 
 # "Main" block for this file (if this was a package rather than a single-file module, we would just cut this code out and put it in WhateverThePackageIsCalled/__main__.py (without the if statement)
 if __name__ == "__main__":
